@@ -1,4 +1,4 @@
-;;; pspp-mode.el --- Major mode for editing PSPP files
+;;; pspp-mode.el --- Major mode for editing PSPP files  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2005,2018,2020 Free Software Foundation, Inc.
 ;; Author: Scott Andrew Borton <scott@pp.htv.fi>
@@ -25,13 +25,11 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Code:
-(defvar pspp-mode-hook nil)
-
 
 (defvar pspp-mode-map
-  (let ((pspp-mode-map (make-keymap)))
-    (define-key pspp-mode-map "\C-j" 'newline-and-indent)
-    pspp-mode-map)
+  (let ((map (make-keymap)))
+    (define-key map "\C-j" 'newline-and-indent)
+    map)
   "Keymap for PSPP major mode")
 
 
@@ -48,18 +46,18 @@
       (while (not (or
                    (or (bobp) pspp-end-of-block-found)
                    pspp-start-of-block-found))
-        (set 'pspp-end-of-block-found
-             (looking-at "^[ \t]*\\(END\\|end\\)[\t ]+\\(DATA\\|data\\)\."))
-        (set 'pspp-start-of-block-found
-             (looking-at "^[ \t]*\\(BEGIN\\|begin\\)[\t ]+\\(DATA\\|data\\)"))
+        (setq pspp-end-of-block-found
+              (looking-at "^[ \t]*\\(END\\|end\\)[\t ]+\\(DATA\\|data\\)\."))
+        (setq pspp-start-of-block-found
+              (looking-at "^[ \t]*\\(BEGIN\\|begin\\)[\t ]+\\(DATA\\|data\\)"))
         (forward-line -1))
 
       (and pspp-start-of-block-found (not pspp-end-of-block-found)))))
 
 
-(defconst pspp-indent-width
+(defconst pspp-indent-width             ;FIXME: Should be a defcustom.
   2
-  "size of indent")
+  "Size of indent.")
 
 
 (defun pspp--downcase-list (l)
@@ -87,9 +85,10 @@ and downcased"
           (regexp-opt (pspp--updown-list '("DO"
                                      "BEGIN"
                                      "LOOP"
-                                     "INPUT")) t)
+                                     "INPUT"))
+                      t)
           "[\t ]+")
-  "constructs which cause indentation")
+  "Constructs which cause indentation.")
 
 
 (defconst pspp-unindenters
@@ -98,16 +97,17 @@ and downcased"
                                      "DATA"
                                      "LOOP"
                                      "REPEAT"
-                                     "INPUT")) t)
+                                     "INPUT"))
+                      t)
           "[\t ]*")
   ;; Note that "END CASE" and "END FILE" do not unindent.
-  "constructs which cause end of indentation")
+  "Constructs which cause end of indentation.")
 
 
 (defun pspp-indent-line ()
   "Indent current line as PSPP code."
   (beginning-of-line)
-  (let ((verbatim nil)
+  (let (;; (verbatim nil)
         (the-indent 0)    ; Default indent to column 0
         (case-fold-search t))
     (if (bobp)
@@ -127,7 +127,7 @@ and downcased"
                     (setq within-command t))))))
       ;; If we're not at the start of a new command, then add an indent.
       (if within-command
-          (set 'the-indent (+ 1 the-indent))))
+          (setq the-indent (+ 1 the-indent))))
     ;; Set the indentation according to the DO - END blocks
     (save-excursion
       (beginning-of-line)
@@ -137,37 +137,38 @@ and downcased"
             (cond ((save-excursion
                      (forward-line -1)
                      (looking-at pspp-indenters))
-                   (set 'the-indent (+ the-indent 1)))
+                   (setq the-indent (+ the-indent 1)))
 
                   ((looking-at pspp-unindenters)
-                   (set 'the-indent (- the-indent 1)))))
+                   (setq the-indent (- the-indent 1)))))
         (forward-line -1)))
 
     (save-excursion
       (beginning-of-line)
       (if (looking-at "^[\t ]*ELSE")
-          (set 'the-indent (- the-indent 1))))
+          (setq the-indent (- the-indent 1))))
 
     ;; Stuff in the data-blocks should be untouched
     (if (not (pspp-data-block-p)) (indent-line-to (* pspp-indent-width the-indent)))))
 
 
 (defun pspp-comment-start-line-p ()
-  "Returns t if the current line is the first line of a comment, nil otherwise"
+  "Return t if the current line is the first line of a comment, nil otherwise"
   (beginning-of-line)
-  (or (looking-at "^\*")
+  (or (looking-at "^\\*")
       (looking-at "^[\t ]*comment[\t ]")
       (looking-at "^[\t ]*COMMENT[\t ]")))
 
 
 (defun pspp-comment-end-line-p ()
-  "Returns t if the current line is the candidate for the last line of a comment, nil otherwise"
+  "Return t if the current line is the candidate for the last line of a comment, nil otherwise"
   (beginning-of-line)
   (looking-at ".*\\.[\t ]*$"))
 
 
 (defun pspp-comment-p ()
-  "Returns t if point is in a comment.  Nil otherwise."
+  "Return t if point is in a comment.  Nil otherwise."
+  ;; FIXME: Use `syntax-ppss'?
   (if (pspp-data-block-p)
       nil
     (let ((pspp-comment-start-found nil)
@@ -180,16 +181,16 @@ and downcased"
                     (not pspp-comment-start-found)
                     (not pspp-comment-end-found))
           (beginning-of-line)
-          (if (pspp-comment-start-line-p) (set 'pspp-comment-start-found t))
+          (if (pspp-comment-start-line-p) (setq pspp-comment-start-found t))
           (if (bobp)
-              (set 'pspp-comment-end-found nil)
+              (setq pspp-comment-end-found nil)
             (save-excursion
               (forward-line -1)
-              (if (pspp-comment-end-line-p) (set 'pspp-comment-end-found t))))
-          (set 'lines (forward-line -1))))
+              (if (pspp-comment-end-line-p) (setq pspp-comment-end-found t))))
+          (setq lines (forward-line -1))))
 
       (save-excursion
-        (set 'pspp-single-line-comment (and
+        (setq pspp-single-line-comment (and
                                         (pspp-comment-start-line-p)
                                         (pspp-comment-end-line-p))))
 
@@ -198,34 +199,46 @@ and downcased"
 
 
 (defvar pspp-mode-syntax-table
-  (let ((x-pspp-mode-syntax-table (make-syntax-table)))
+  (let ((st (make-syntax-table)))
 
     ;; Special chars allowed in variables
-    (modify-syntax-entry ?#  "w" x-pspp-mode-syntax-table)
-    (modify-syntax-entry ?@  "w" x-pspp-mode-syntax-table)
-    (modify-syntax-entry ?$  "w" x-pspp-mode-syntax-table)
+    (modify-syntax-entry ?#  "_" st)
+    (modify-syntax-entry ?@  "_" st)
+    (modify-syntax-entry ?$  "_" st)
 
     ;; Comment syntax
     ;;  This is incomplete, because:
     ;;  a) Comments can also be given by COMMENT
     ;;  b) The sequence .\n* is interpreted incorrectly.
 
-    (modify-syntax-entry ?*  ". 2" x-pspp-mode-syntax-table)
-    (modify-syntax-entry ?.  ". 3" x-pspp-mode-syntax-table)
-    (modify-syntax-entry ?\n  "- 41" x-pspp-mode-syntax-table)
+    (modify-syntax-entry ?*  ". 2" st)
+    (modify-syntax-entry ?.  ". 3" st)
+    (modify-syntax-entry ?\n  "- 41" st)
 
     ;; String delimiters
-    (modify-syntax-entry ?'  "\"" x-pspp-mode-syntax-table)
-    (modify-syntax-entry ?\"  "\"" x-pspp-mode-syntax-table)
+    (modify-syntax-entry ?'  "\"" st)
+    (modify-syntax-entry ?\"  "\"" st)
 
-    x-pspp-mode-syntax-table)
+    st)
 
-  "Syntax table for pspp-mode")
+  "Syntax table for pspp-mode.")
 
+(defconst pspp--syntax-propertize
+  ;; FIXME: Properly handle comments!
+  (syntax-propertize-rules
+   ;; PSPP, like Pascal, uses '' and "" rather than \' and \" to escape quotes.
+   ;; Code taken straight from `pascal.el'.
+   ("''\\|\"\"" (0 (if (save-excursion
+                         (nth 3 (syntax-ppss (match-beginning 0))))
+                       (string-to-syntax ".")
+                     ;; In case of 3 or more quotes in a row, only advance
+                     ;; one quote at a time.
+                     (forward-char -1)
+                     nil)))))
 
 (defconst pspp-font-lock-keywords
   (list (cons
-         (concat "\\<"
+         (concat "\\_<"
                  (regexp-opt (pspp--updown-list '(
                                "END DATA"
                                "ACF"
@@ -398,17 +411,17 @@ and downcased"
                                "WEIGHT"
                                "WRITE"
                                "WRITE FORMATS"
-                               "XSAVE")) t) "\\>")
+                               "XSAVE")) t) "\\_>")
          'font-lock-builtin-face)
 
         (cons
-         (concat "\\<" (regexp-opt (pspp--updown-list
+         (concat "\\_<" (regexp-opt (pspp--updown-list
                         '("ALL" "AND" "BY" "EQ" "GE" "GT" "LE" "LT" "NE" "NOT" "OR" "TO" "WITH"))
-                        t) "\\>")
+                        t) "\\_>")
          'font-lock-keyword-face)
 
         (cons
-         (concat "\\<"
+         (concat "\\_<"
                  (regexp-opt (pspp--updown-list '(
                                "ABS"
                                "ACOS"
@@ -625,31 +638,31 @@ and downcased"
                                "XDATE.WKDAY"
                                "XDATE.YEAR"
                                "YRMODA"))
-                             t) "\\>")  'font-lock-function-name-face)
+                             t) "\\_>")  'font-lock-function-name-face)
 
-        '( "\\<[#$@a-zA-Z][a-zA-Z0-9_]*\\>" . font-lock-variable-name-face))
+        ;; FIXME: The doc at
+        ;; https://www.gnu.org/software/pspp/manual/html_node/Tokens.html
+        ;; does not include `$' in the allowed first chars and it includes
+        ;; `. $ # @' additionally to `_' in the subsequent chars.
+        '( "\\_<[#$@[:alpha:]][[:alnum:]_]*\\_>"
+           . font-lock-variable-name-face))
   "Highlighting expressions for PSPP mode.")
 
 
 ;;;###autoload
-(defun pspp-mode ()
-  (interactive)
-  (kill-all-local-variables)
-  (use-local-map pspp-mode-map)
-  (set-syntax-table pspp-mode-syntax-table)
-
+(define-derived-mode pspp-mode prog-mode "PSPP"
+  "Major mode to edit PSPP files."
   (set (make-local-variable 'font-lock-keywords-case-fold-search) t)
   (set (make-local-variable 'font-lock-defaults) '(pspp-font-lock-keywords))
 
-  (set (make-local-variable 'indent-line-function) 'pspp-indent-line)
+  (set (make-local-variable 'indent-line-function) #'pspp-indent-line)
   (set (make-local-variable 'comment-start) "* ")
   (set (make-local-variable 'compile-command)
        (concat "pspp "
                buffer-file-name))
 
-  (setq major-mode 'pspp-mode)
-  (setq mode-name "PSPP")
-  (run-hooks 'pspp-mode-hook))
+  (set (make-local-variable 'syntax-propertize-function)
+       pspp--syntax-propertize))
 
 (provide 'pspp-mode)
 
