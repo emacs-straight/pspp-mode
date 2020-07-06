@@ -60,24 +60,10 @@
   "Size of indent.")
 
 
-(defun pspp--downcase-list (l)
-  "Takes a list of strings and returns that list with all elements downcased"
-  (if l
-      (cons (downcase (car l)) (pspp--downcase-list (cdr l)))
-    nil))
-
-
-(defun pspp--upcase-list (l)
-  "Takes a list of strings and returns that list with all elements upcased"
-  (if l
-      (cons (upcase (car l)) (pspp--upcase-list (cdr l)))
-    nil))
-
-
 (defun pspp--updown-list (l)
   "Takes a list of strings and returns that list with all elements upcased
 and downcased"
-  (append (pspp--upcase-list l) (pspp--downcase-list l)))
+  (append (mapcar #'upcase l) (mapcar #'downcase l)))
 
 
 (defconst pspp-indenters
